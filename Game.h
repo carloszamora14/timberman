@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
+#include <NumberGeneration.h>
 
 #define WIDTH 2
 #define HEIGHT 16
@@ -13,34 +14,39 @@
 class Game {
   public:
     Game(LiquidCrystal_I2C &lcd);
-    bool gameOver;
-    float timer;
     void setup();
     void initializeChars();
     void display();
     void updateTimer(float delta);
     void updateFrame(int xMovement);
-    bool started;
+    bool gameOver;
+    bool paused;
+    float timer;
+    int score;
 
   private:
     enum Character {
-      PlayerDeath = 0,
-      PlayerLeft,
-      PlayerRight,
       BranchLeft,
       BranchRight,
       TrunkLeft,
       TrunkRight,
-      Blank
+      Player,
+      NumberLeft,
+      NumberRight,
+      TimerBar,
+      Blank = 254,
+      Black = 255,
     };
 
-    static byte chars[8][8];
+    static byte treeChars[4][8];
+    static byte playerChars[2][8];
 
     LiquidCrystal_I2C &lcd;
     Character grid[HEIGHT][WIDTH];
-    int xPos;
     void generateBranch(int row);
     void handlePlayerMovement(int xMovement);
+    void updateScore();
+    int xPos;
 };
 
 #endif

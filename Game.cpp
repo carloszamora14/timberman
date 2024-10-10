@@ -2,20 +2,22 @@
 
 const float TIMER_INCREMENT = 0.3f;
 const float MIN_TIMER_VALUE = 0.0f;
-const float MAX_TIMER_VALUE = 10.0f;
+const float MAX_TIMER_VALUE = 8.0f;
 
-// In the same order as the Character enum
-byte Game::chars[8][8] = {
-    {B11111, B11111, B11111, B11111, B11111, B11111, B11111, B11111},
-    {B00000, B00000, B11100, B11100, B00000, B00000, B11111, B11111},
-    {B11111, B11111, B00000, B00000, B11100, B11100, B00000, B00000},
-    {B00000, B00000, B00110, B00100, B00100, B00100, B11111, B11111},
-    {B11111, B11111, B00100, B00100, B00100, B01100, B00000, B00000},
-    {B00000, B00000, B00000, B00000, B00000, B00000, B11111, B11111},
-    {B11111, B11111, B00000, B00000, B00000, B00000, B00000, B00000},
-    {B00000, B00000, B00000, B00000, B00000, B00000, B00000, B00000}};
+byte Game::treeChars[4][8] = {
+  {B00000, B00000, B00110, B00100, B00100, B00100, B11111, B11111},
+  {B11111, B11111, B00100, B00100, B00100, B01100, B00000, B00000},
+  {B00000, B00000, B00000, B00000, B00000, B00000, B11111, B11111},
+  {B11111, B11111, B00000, B00000, B00000, B00000, B00000, B00000},
+};
 
-Game::Game(LiquidCrystal_I2C &lcdRef) : lcd(lcdRef), gameOver(false), xPos(0), timer(5.0f), started(false) {}
+byte Game::playerChars[2][8] = {
+  {B00000, B00000, B11100, B11100, B00000, B00000, B11111, B11111},
+  {B11111, B11111, B00000, B00000, B11100, B11100, B00000, B00000},
+};
+
+Game::Game(LiquidCrystal_I2C &lcdRef)
+    : lcd(lcdRef), gameOver(false), xPos(0), timer(4.0f), paused(true), score(0) {}
 
 void Game::setup() {
   for (int i = 0; i < STARTING_ROW; i++) {
@@ -38,13 +40,20 @@ void Game::setup() {
     grid[i][1] = Blank;
   }
 
-  grid[STARTING_ROW][xPos] = (xPos == 0) ? PlayerLeft : PlayerRight;
+  grid[STARTING_ROW][xPos] = Player;
+  grid[HEIGHT - 1][0] = NumberLeft;
+  grid[HEIGHT - 1][1] = NumberRight;
+
+  updateScore();
+  updateTimer(0.0f);
 }
 
 void Game::initializeChars() {
-  for (int i = 0; i < 8; i++) {
-    lcd.createChar(i, chars[i]);
+  for (int i = 0; i < 4; i++) {
+    lcd.createChar(i, treeChars[i]);
   }
+
+  lcd.createChar(Player, playerChars[xPos]);
 }
 
 void Game::generateBranch(int row) {
@@ -68,14 +77,17 @@ void Game::handlePlayerMovement(int xMovement) {
 
   if (grid[STARTING_ROW][xPos] == (xPos == 0 ? BranchLeft : BranchRight)) {
     gameOver = true;
-    grid[STARTING_ROW][xPos] = PlayerDeath;
+    grid[STARTING_ROW][xPos] = Black;
   } else {
-    grid[STARTING_ROW][xPos] = (xPos == 0) ? PlayerLeft : PlayerRight;
+    score++;
+    lcd.createChar(Player, playerChars[xPos]);
+    grid[STARTING_ROW][xPos] = Player;
   }
 }
 
 void Game::updateFrame(int xMovement) {
   updateTimer(TIMER_INCREMENT);
+  updateScore();
 
   for (int i = STARTING_ROW; i < ENDING_ROW - 1; i++) {
     grid[i][0] = grid[i + 1][0];
@@ -90,19 +102,44 @@ void Game::updateFrame(int xMovement) {
   generateBranch(ENDING_ROW - 1);
 }
 
+void Game::updateScore() {
+  byte left[8];
+  byte right[8];
+
+  NumberGeneration::GenerateScoreBytes(score, left, right);
+  lcd.createChar(NumberLeft, left);
+  lcd.createChar(NumberRight, right);
+}
+
 void Game::updateTimer(float delta) {
   timer += delta;
 
   if (timer < MIN_TIMER_VALUE) {
+    timer = 0.0f;
     gameOver = true;
   } else if (timer > MAX_TIMER_VALUE) {
     timer = MAX_TIMER_VALUE;
   }
+
+  byte bar[8] = {0};
+  int barsToFill = round(2 * timer - (timer > MAX_TIMER_VALUE / 2 ? MAX_TIMER_VALUE : 0));
+
+  for (int i = 0; i < barsToFill; i++) {
+    bar[i] = B11111;
+  }
+
+  lcd.createChar(TimerBar, bar);
+
+  if (timer <= MAX_TIMER_VALUE / 2) {
+    grid[0][0] = TimerBar;
+    grid[0][1] = Blank;
+  } else {
+    grid[0][0] = Black;
+    grid[0][1] = TimerBar;
+  }
 }
 
 void Game::display() {
-  // initializeChars();
-
   for (int i = 0; i < HEIGHT; i++) {
     for (int j = 0; j < WIDTH; j++) {
       lcd.setCursor(i, j);
