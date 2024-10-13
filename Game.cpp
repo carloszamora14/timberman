@@ -4,20 +4,20 @@ const float TIMER_INCREMENT = 0.3f;
 const float MIN_TIMER_VALUE = 0.0f;
 const float MAX_TIMER_VALUE = 8.0f;
 
-byte Game::treeChars[4][8] = {
-  {B00000, B00000, B00110, B00100, B00100, B00100, B11111, B11111},
-  {B11111, B11111, B00100, B00100, B00100, B01100, B00000, B00000},
-  {B00000, B00000, B00000, B00000, B00000, B00000, B11111, B11111},
-  {B11111, B11111, B00000, B00000, B00000, B00000, B00000, B00000},
+Arduino_h::byte Game::treeChars[4][8] = {
+    {B00000, B00000, B00110, B00100, B00100, B00100, B11111, B11111},
+    {B11111, B11111, B00100, B00100, B00100, B01100, B00000, B00000},
+    {B00000, B00000, B00000, B00000, B00000, B00000, B11111, B11111},
+    {B11111, B11111, B00000, B00000, B00000, B00000, B00000, B00000},
 };
 
-byte Game::playerChars[2][8] = {
-  {B00000, B00000, B11100, B11100, B00000, B00000, B11111, B11111},
-  {B11111, B11111, B00000, B00000, B11100, B11100, B00000, B00000},
+Arduino_h::byte Game::playerChars[2][8] = {
+    {B00000, B00000, B11100, B11100, B00000, B00000, B11111, B11111},
+    {B11111, B11111, B00000, B00000, B11100, B11100, B00000, B00000},
 };
 
 Game::Game(LiquidCrystal_I2C &lcdRef)
-    : lcd(lcdRef), gameOver(false), xPos(0), timer(4.0f), paused(true), score(0) {}
+    : lcd(lcdRef), gameOver(false), xPos(0), timer(4.0f), paused(true), score(0), barsToFill(0) {}
 
 void Game::setup() {
   for (int i = 0; i < STARTING_ROW; i++) {
@@ -57,8 +57,8 @@ void Game::initializeChars() {
 }
 
 void Game::generateBranch(int row) {
-  if (random(BRANCH_PROB) == 0) {
-    int branchPosition = random(0, WIDTH);
+  if (random(BRANCH_PROB) % 3 != 0) {
+    int branchPosition = random(WIDTH);
 
     if (branchPosition == 0 && grid[row - 1][1] != BranchRight) {
       grid[row][0] = BranchLeft;
@@ -78,8 +78,10 @@ void Game::handlePlayerMovement(int xMovement) {
   if (grid[STARTING_ROW][xPos] == (xPos == 0 ? BranchLeft : BranchRight)) {
     gameOver = true;
     grid[STARTING_ROW][xPos] = Black;
+    tone(BUZZER_PIN, 500, 500);
   } else {
     score++;
+    tone(BUZZER_PIN, 1000, 100);
     lcd.createChar(Player, playerChars[xPos]);
     grid[STARTING_ROW][xPos] = Player;
   }
@@ -103,8 +105,8 @@ void Game::updateFrame(int xMovement) {
 }
 
 void Game::updateScore() {
-  byte left[8];
-  byte right[8];
+  Arduino_h::byte left[8];
+  Arduino_h::byte right[8];
 
   NumberGeneration::GenerateScoreBytes(score, left, right);
   lcd.createChar(NumberLeft, left);
@@ -117,25 +119,30 @@ void Game::updateTimer(float delta) {
   if (timer < MIN_TIMER_VALUE) {
     timer = 0.0f;
     gameOver = true;
+    tone(BUZZER_PIN, 500, 500);
   } else if (timer > MAX_TIMER_VALUE) {
     timer = MAX_TIMER_VALUE;
   }
 
-  byte bar[8] = {0};
-  int barsToFill = round(2 * timer - (timer > MAX_TIMER_VALUE / 2 ? MAX_TIMER_VALUE : 0));
+  Arduino_h::byte bar[8] = {0};
+  int newBarsToFill = round(2 * timer - (timer > MAX_TIMER_VALUE / 2 ? MAX_TIMER_VALUE : 0));
 
-  for (int i = 0; i < barsToFill; i++) {
-    bar[i] = B11111;
-  }
+  if (newBarsToFill != barsToFill) {
+    for (int i = 0; i < newBarsToFill; i++) {
+      bar[i] = B11111;
+    }
 
-  lcd.createChar(TimerBar, bar);
+    lcd.createChar(TimerBar, bar);
 
-  if (timer <= MAX_TIMER_VALUE / 2) {
-    grid[0][0] = TimerBar;
-    grid[0][1] = Blank;
-  } else {
-    grid[0][0] = Black;
-    grid[0][1] = TimerBar;
+    if (timer <= MAX_TIMER_VALUE / 2) {
+      grid[0][0] = TimerBar;
+      grid[0][1] = Blank;
+    } else {
+      grid[0][0] = Black;
+      grid[0][1] = TimerBar;
+    }
+
+    barsToFill = newBarsToFill;
   }
 }
 

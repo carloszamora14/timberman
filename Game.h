@@ -1,15 +1,16 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include "NumberGeneration.h"
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
-#include <NumberGeneration.h>
 
 #define WIDTH 2
 #define HEIGHT 16
 #define STARTING_ROW 2
 #define ENDING_ROW 14
-#define BRANCH_PROB 3
+#define BRANCH_PROB 100
+#define BUZZER_PIN 17
 
 class Game {
   public:
@@ -38,8 +39,8 @@ class Game {
       Black = 255,
     };
 
-    static byte treeChars[4][8];
-    static byte playerChars[2][8];
+    static Arduino_h::byte treeChars[4][8];
+    static Arduino_h::byte playerChars[2][8];
 
     LiquidCrystal_I2C &lcd;
     Character grid[HEIGHT][WIDTH];
@@ -47,6 +48,7 @@ class Game {
     void handlePlayerMovement(int xMovement);
     void updateScore();
     int xPos;
+    int barsToFill;
 };
 
 #endif

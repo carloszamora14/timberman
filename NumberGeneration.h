@@ -5,11 +5,11 @@
 
 class NumberGeneration {
   public:
-    static byte *GenerateByteNumber(int a, int b);
-    static void GenerateScoreBytes(int score, byte *left, byte *right);
+    static Arduino_h::byte *GenerateByteNumber(int a, int b);
+    static void GenerateScoreBytes(int score, Arduino_h::byte *left, Arduino_h::byte *right);
 
   private:
-    static const byte numbers[10][4];
+    static const Arduino_h::byte numbers[10][4];
 };
 
 #endif
