@@ -20,14 +20,6 @@
 #define I2S_BCLK 26
 #define I2S_LRC 27
 
-#define JOYSTICK_X_PIN 2
-#define JOYSTICK_Y_PIN 4
-#define JOYSTICK_SW_PIN 15
-#define CHIP_SELECT_PIN 5
-
-#define JOYSTICK_THRESHOLD_LOW 1000
-#define JOYSTICK_THRESHOLD_HIGH 2500
-
 Audio audio;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Game game(lcd);
