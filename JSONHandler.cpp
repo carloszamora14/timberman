@@ -1,15 +1,11 @@
 #include "JSONHandler.h"
 
-// Constructor
-JSONHandler::JSONHandler(const char* filename)
-  : filename(filename), size(0) {
-  // Initialize size to 0, will be updated after reading from the file
-}
+JSONHandler::JSONHandler(const char *filename)
+    : filename(filename), size(0) {}
 
 bool JSONHandler::readScores() {
-  // Try to open the file in read mode
   File file = SD.open(filename, FILE_READ);
-  
+
   // If the file does not exist or failed to open
   if (!file) {
     Serial.println("File does not exist, creating a new one...");
@@ -34,7 +30,7 @@ bool JSONHandler::readScores() {
 
     file.close();
     Serial.println("File created successfully");
-    return true;  // Successfully created and initialized the file
+    return true; // Successfully created and initialized the file
   }
 
   // Continue reading if the file exists
@@ -54,7 +50,9 @@ bool JSONHandler::readScores() {
   // Load scores from JSON
   for (JsonObject obj : scoresArray) {
     if (size < maxEntries) {
-      scores[size].name = obj["name"].as<String>();
+      // Use strcpy to copy the name from the JSON object to the char array
+      strncpy(scores[size].name, obj["name"].as<const char *>(), sizeof(scores[size].name) - 1);
+      scores[size].name[sizeof(scores[size].name) - 1] = '\0'; // Null-terminate
       scores[size].score = obj["score"];
       size++;
     }
@@ -66,49 +64,63 @@ bool JSONHandler::readScores() {
 // Checks if the new score qualifies to be saved
 bool JSONHandler::shouldSaveScore(int newScore) {
   if (size < maxEntries) {
-    return true;  // Always save if we have less than maxEntries
+    return true; // Always save if we have less than maxEntries
   }
 
   for (size_t i = 0; i < size; i++) {
     if (newScore > scores[i].score) {
-      return true;  // Save if the new score is greater than an existing one
+      return true; // Save if the new score is greater than an existing one
     }
   }
 
   return false;
 }
 
-// Compares the new score with existing ones and stores it if it's higher
-bool JSONHandler::compareAndStore(const String& name, int newScore) {
+void JSONHandler::sortScores() {
+  // Bubble sort to sort scores in descending order
+  for (size_t i = 0; i < size - 1; i++) {
+    for (size_t j = 0; j < size - i - 1; j++) {
+      if (scores[j].score < scores[j + 1].score) {
+        // Swap the scores if they are out of order
+        ScoreEntry temp = scores[j];
+        scores[j] = scores[j + 1];
+        scores[j + 1] = temp;
+      }
+    }
+  }
+}
+
+bool JSONHandler::compareAndStore(const char *name, int newScore) {
   if (!shouldSaveScore(newScore)) {
     Serial.println("Score is not high enough to be saved");
     return false;
   }
 
-  // Find the position for the new score
-  int pos = -1;
-  for (size_t i = 0; i < size; i++) {
-    if (newScore > scores[i].score) {
-      pos = i;
-      break;
-    }
-  }
-
-  // If there's an open slot or the score is higher than one of the current scores
+  // Find the position for the new score or add it to the end
   if (size < maxEntries) {
-    pos = size;
+    // Add the new score to the next available slot
+    strncpy(scores[size].name, name, sizeof(scores[size].name) - 1);
+    scores[size].name[sizeof(scores[size].name) - 1] = '\0'; // Null-terminate
+    scores[size].score = newScore;
     size++;
-  }
-
-  // Shift entries if necessary
-  if (pos >= 0) {
-    for (size_t i = size - 1; i > pos; i--) {
-      scores[i] = scores[i - 1];
+  } else {
+    // Replace the lowest score if the new one is higher
+    for (size_t i = 0; i < size; i++) {
+      if (newScore > scores[i].score) {
+        // Shift entries down to make room for the new score
+        for (size_t j = size - 1; j > i; j--) {
+          scores[j] = scores[j - 1];
+        }
+        // Insert the new score at the correct position
+        strncpy(scores[i].name, name, sizeof(scores[i].name) - 1);
+        scores[i].name[sizeof(scores[i].name) - 1] = '\0'; // Null-terminate
+        scores[i].score = newScore;
+        break;
+      }
     }
-    scores[pos].name = name;
-    scores[pos].score = newScore;
   }
 
+  sortScores();
   saveScores();
   return true;
 }
@@ -127,11 +139,10 @@ void JSONHandler::saveScores() {
   // Populate the JSON array with scores
   for (size_t i = 0; i < size; i++) {
     JsonObject obj = scoresArray.createNestedObject();
-    obj["name"] = scores[i].name;
+    obj["name"] = scores[i].name; // Store the name from char array
     obj["score"] = scores[i].score;
   }
 
-  // Serialize the JSON document to the file
   if (serializeJson(doc, file) == 0) {
     Serial.println("Failed to write JSON");
   }
@@ -139,7 +150,6 @@ void JSONHandler::saveScores() {
   file.close();
 }
 
-// Prints the current scores to the serial monitor (for debugging)
 void JSONHandler::printScores() {
   Serial.println("Current scores:");
   for (size_t i = 0; i < size; i++) {

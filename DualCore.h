@@ -1,13 +1,13 @@
-#ifndef DualCore_h
-#define DualCore_h
+#ifndef DUAL_CORE_H
+#define DUAL_CORE_H
 
 #include "Audio.h"
+#include "BaseScreen.h"
 #include "FS.h"
+#include "MainMenu.h"
 #include "SD.h"
+#include "StateManager.h"
 #include <LiquidCrystal_I2C.h>
-#include <Wire.h>
-
-#include "Game.h"
 
 // microSD Card Reader connections
 #define SD_CS 5
@@ -20,16 +20,15 @@
 #define I2S_BCLK 26
 #define I2S_LRC 27
 
-Audio audio;
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-Game game(lcd);
-
-bool switched = false, started = false;
-int xMovement = 0;
-unsigned long lastUpdateTime, currentTime;
-
 #define NUCLEO_SECUNDARIO 0X00 // Núcleo secundario.
 #define NUCLEO_PRINCIPAL 0X01  // Núcleo principalmente utilizado por el IDE en el loop original.
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+StateManager stateManager;
+Audio audio;
+bool switched = false;
+unsigned long startTime;
+unsigned long introDuration = 26000;
 
 /* INSTANCIAS FREE-RTOS */
 TaskHandle_t Hilo1;
@@ -69,43 +68,19 @@ void DualCoreESP32 ::ConfigCores(void) {
 }
 
 void DualCoreESP32 ::Loop1(void *pvParameters) {
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(JOYSTICK_SW_PIN, INPUT_PULLUP);
+  Serial.begin(115200);
+
   lcd.init();
   lcd.backlight();
 
-  game.setup();
-  game.initializeChars();
+  BaseScreen *menu = new MainMenu(lcd, stateManager);
+  stateManager.changeState(menu);
 
   for (;;) {
-    game.display();
-
-    if (analogRead(JOYSTICK_X_PIN) < JOYSTICK_THRESHOLD_LOW) {
-      xMovement = -1;
-    } else if (analogRead(JOYSTICK_X_PIN) > JOYSTICK_THRESHOLD_HIGH) {
-      xMovement = 1;
-    } else {
-      xMovement = 0;
-    }
-
-    currentTime = millis();
-
-    if (!game.gameOver) {
-      if (xMovement != 0) {
-        if (game.paused) {
-          lastUpdateTime = currentTime;
-          game.paused = false;
-        }
-
-        game.updateFrame(xMovement);
-      }
-
-      if (!game.paused) {
-        float delta = (currentTime - lastUpdateTime) / 1000.0f;
-        game.updateTimer(-delta);
-        lastUpdateTime = currentTime;
-      }
-    }
-
-    vTaskDelay(10);
+    stateManager.handleInput();
+    stateManager.update();
   }
 }
 
@@ -121,27 +96,12 @@ void DualCoreESP32 ::Loop2(void *pvParameters) {
   }
 
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-
-  audio.setVolume(10);
-
-  audio.connecttoFS(SD, "/soundtrack-start.mp3");
+  audio.setVolume(12);
+  audio.connecttoFS(SD, "/soundtrack-loop.mp3");
+  audio.setFileLoop(true);
 
   for (;;) {
     audio.loop();
-
-    uint32_t audioPos = audio.getFilePos();
-
-    if (audioPos == 0 && !switched && started) {
-      Serial.println("looping");
-      switched = true;
-      audio.connecttoFS(SD, "/soundtrack-loop.mp3");
-      audio.setFileLoop(true);
-    }
-
-    if (!started) {
-      started = true;
-    }
-
     vTaskDelay(100);
   }
 }

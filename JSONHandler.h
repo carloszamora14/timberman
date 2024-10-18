@@ -2,31 +2,31 @@
 #define JSON_HANDLER_H
 
 #include <ArduinoJson.h>
-#include <SPI.h>
 #include <SD.h>
+#include <SPI.h>
+
+const int maxEntries = 10;
 
 class JSONHandler {
-public:
-    JSONHandler(const char* filename);
-    bool readScores();  // Reads scores from the JSON file
-    bool compareAndStore(const String& name, int score);  // Compares and stores the new score
-    bool shouldSaveScore(int score);  // Checks if the new score qualifies to be saved
-    void printScores();  // For debugging, prints the current scores
-
-private:
-    const char* filename;
-    static const int maxEntries = 4;
+  public:
+    JSONHandler(const char *filename);
+    bool readScores();
+    bool compareAndStore(const char *name, int score);
+    bool shouldSaveScore(int score);
+    void printScores();
 
     struct ScoreEntry {
-        String name;
+        char name[5];
         int score;
     };
 
     ScoreEntry scores[maxEntries];
     size_t size;
 
-    void saveScores();  // Saves the top scores to the file
-    void shiftEntries();  // Shifts the entries in the scores array when a new score is added
+  private:
+    const char *filename;
+    void sortScores();
+    void saveScores();
 };
 
 #endif

@@ -1,10 +1,9 @@
 #define BAUDRATE 115200
 
 #include "DualCore.h"
-DualCoreESP32 DCESP32;
+DualCore DCESP32;
 
 void setup(void) {
-  pinMode(BUZZER_PIN, OUTPUT);
   Serial.begin(BAUDRATE);
   DCESP32.ConfigCores();
 
